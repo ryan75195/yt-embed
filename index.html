@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <style>
+      body { margin: 0; background: #000; }
+      .container { position: relative; width: 100%; height: 0; padding-bottom: 56.25%; }
+      .video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="video" id="player"></div>
+    </div>
+    <script>
+      // Parse config from URL query param
+      var params = {};
+      try {
+        var raw = decodeURI(location.search.slice(6)); // ?data=...
+        params = JSON.parse(raw);
+      } catch(e) {}
+
+      var tag = document.createElement('script');
+      tag.src = "https://www.youtube.com/iframe_api";
+      var firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+      var player;
+      function onYouTubeIframeAPIReady() {
+        var pv = {
+          playsinline: 1,
+          rel: params.rel_s || 0,
+          loop: params.loop_s || 0,
+          controls: params.controls_s != null ? params.controls_s : 1,
+          fs: params.preventFullScreen_s != null ? params.preventFullScreen_s : 1,
+          modestbranding: params.modestbranding_s || 0,
+          cc_load_policy: params.showClosedCaptions_s || 0,
+        };
+        if (params.color) pv.color = params.color;
+        if (params.start) pv.start = params.start;
+        if (params.end) pv.end = params.end;
+        if (params.playerLang) pv.hl = params.playerLang;
+        if (params.cc_lang_pref_s) pv.cc_lang_pref = params.cc_lang_pref_s;
+        if (params.iv_load_policy) pv.iv_load_policy = params.iv_load_policy;
+        if (params.list) pv.list = params.list;
+        if (params.listType) pv.listType = params.listType;
+        if (params.playlist) pv.playlist = params.playlist;
+
+        player = new YT.Player('player', {
+          width: '1000',
+          height: '1000',
+          videoId: params.videoId_s || '',
+          playerVars: pv,
+          events: {
+            onReady: function(e) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({eventType:'playerReady'}));
+            },
+            onStateChange: function(e) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({eventType:'playerStateChange',data:e.data}));
+            },
+            onError: function(e) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({eventType:'playerError',data:e.data}));
+            },
+            onPlaybackQualityChange: function(e) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({eventType:'playerQualityChange',data:e.data}));
+            },
+            onPlaybackRateChange: function(e) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({eventType:'playbackRateChange',data:e.data}));
+            }
+          }
+        });
+      }
+
+      var isFullScreen = false;
+      function onFullScreenChange() {
+        isFullScreen = document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+        window.ReactNativeWebView.postMessage(JSON.stringify({eventType:'fullScreenChange',data:Boolean(isFullScreen)}));
+      }
+      document.addEventListener('fullscreenchange', onFullScreenChange);
+      document.addEventListener('webkitfullscreenchange', onFullScreenChange);
+
+      window.addEventListener('message', function(event) {
+        try {
+          var d = JSON.parse(event.data);
+          switch(d.eventName) {
+            case 'playVideo': player.playVideo(); break;
+            case 'pauseVideo': player.pauseVideo(); break;
+            case 'muteVideo': player.mute(); break;
+            case 'unMuteVideo': player.unMute(); break;
+          }
+        } catch(e) {}
+      });
+    </script>
+  </body>
+</html>
