@@ -4,7 +4,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <style>
-      body { margin: 0; background: #000; }
+      body { margin: 0; background: #000; overflow: hidden; }
       .container { position: relative; width: 100%; height: 0; padding-bottom: 56.25%; }
       .video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
     </style>
@@ -29,6 +29,7 @@
       var player;
       function onYouTubeIframeAPIReady() {
         var pv = {
+          autoplay: 1,
           playsinline: 1,
           rel: params.rel_s || 0,
           loop: params.loop_s || 0,
@@ -49,8 +50,8 @@
 
         player = new YT.Player('player', {
           host: 'https://www.youtube-nocookie.com',
-          width: '1000',
-          height: '1000',
+          width: '100%',
+          height: '100%',
           videoId: params.videoId_s || '',
           playerVars: pv,
           events: {
@@ -84,11 +85,32 @@
       window.addEventListener('message', function(event) {
         try {
           var d = JSON.parse(event.data);
+          if (!player) return;
           switch(d.eventName) {
             case 'playVideo': player.playVideo(); break;
             case 'pauseVideo': player.pauseVideo(); break;
             case 'muteVideo': player.mute(); break;
             case 'unMuteVideo': player.unMute(); break;
+            case 'setVolume': player.setVolume(d.meta && d.meta.volume); break;
+            case 'setPlaybackRate': player.setPlaybackRate(d.meta && d.meta.playbackRate); break;
+            case 'seekTo': player.seekTo(d.seconds, true); break;
+            case 'loadVideoById':
+              if (d.meta && d.meta.loadVideoById) {
+                player.loadVideoById({videoId: d.meta.loadVideoById});
+              } else if (d.videoId) {
+                player.loadVideoById({videoId: d.videoId});
+              }
+              break;
+            case 'getTime':
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                eventType:'cb', id:d.id, data: player.getCurrentTime()
+              }));
+              break;
+            case 'getDuration':
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                eventType:'cb', id:d.id, data: player.getDuration()
+              }));
+              break;
           }
         } catch(e) {}
       });
